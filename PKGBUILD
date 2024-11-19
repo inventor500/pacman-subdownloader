@@ -8,7 +8,7 @@ license=('GPL3')
 depends=('pacman' 'curl')
 makedepends=('go')
 source=('cmd/pacman-subdownloader/main.go')
-sha256sums=('0f4c887b81a14c844f4f4449fa58b6ea37ccceeffeb3f2fbef0cd7953096c45c')
+sha256sums=('cbb91395d47bc84d943482f7dc47d50a26da392c523bd0e8a65eb658c13902f0')
 
 prepare() {
 	mkdir "$pkgname"
@@ -24,6 +24,7 @@ build() {
 	export CGO_CXXFLAGS="${CXXFLAGS}"
 	export CGO_LDFLAGS="${LDFLAGS}"
 	export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
+	cd "$pkgname"
 	go build
 }
 
