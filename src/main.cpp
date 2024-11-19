@@ -1,1 +1,0 @@
-/home/inventor500/workspace/go/pacman-subdownloader/main.cpp
