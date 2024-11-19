@@ -9,7 +9,7 @@ depends=('pacman' 'curl')
 makedepends=('cmake')
 source=('CMakeLists.txt' 'main.cpp')
 sha256sums=('4a699f5e549d3207cbbfa21bea62a86fe1828351f1c24d08ad49ba1694fac3df'
-            'dea41646cdb1dda8dd6d2b458eb75d991bbdb5ce5bf0bbc06a7f76b4f2e55924')
+            '706c4b1b84e36064d757d115d5ffecc841845207fbcc226f19a29a7d4ccdcbe2')
 
 prepare() {
 	cmake -B build -S .
