@@ -17,14 +17,21 @@ XferCommand = /path/to/pacman-subdownloader --socks5-hostname <proxy> %u %o
 
 # Compilation
 
-This program uses cgo. It requires `alpm.h` (included with pacman) and `sys/utsname.h` (part of the POSIX standard) to compile.
+This program requires `libcurl` and `libalpm`'s headers to build.
 
-To compile a binary, simply run `go build`. To compile an Arch Linux package, copy the directory somewhere outside of your go workspace, and then run `makepkg`.
+To build an Arch Linux package, run `makepkg`.  
+To just compile the binary, run:
+```shell
+cmake -B build
+cmake --build build
+mv build/pacman-subdownloader ./
+```
+
 
 # Caveats
 
 - Unfortunately, Pacman sets its version using a macro at compile-time, so there is no easy way to derive it from any other program.  
 I may eventually update this to query the local package database for it, but until then, that part of the user agent is hard-coded.  
 All other parts of the user agent are derived the same way as pacman calculates them.
-- This program still uses cURL to download packages.
+- This program still uses cURL to download packages, so cURL needs to be installed.
 
