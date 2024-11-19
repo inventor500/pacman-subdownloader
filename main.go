@@ -7,18 +7,12 @@ import "C"
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 )
 
 func main() {
 	os.Exit(mainFunc())
-}
-
-func stdinAvailable() bool {
-	stat, _ := os.Stdin.Stat()
-	return stat.Mode()&os.ModeCharDevice == 0
 }
 
 type args struct {
@@ -29,7 +23,7 @@ type args struct {
 
 func parseArgs() *args {
 	var proxy string
-	flag.StringVar(&proxy, "socks5hostname", "", "The socks5 hostname to use as a proxy.")
+	flag.StringVar(&proxy, "socks5-hostname", "", "The socks5 hostname to use as a proxy.")
 	flag.Parse()
 	if len(flag.Args()) != 2 {
 		flag.Usage()
@@ -50,7 +44,7 @@ func makeCommand(args *args, userAgent string) *exec.Cmd {
 	}
 }
 
-func buildUserAgent() string {
+func makeUserAgent() string {
 	un := C.struct_utsname{}
 	C.uname(&un)
 	// Pacman's PACKAGE_VERSION is hard-coded using a macro
@@ -62,26 +56,14 @@ func buildUserAgent() string {
 func mainFunc() int {
 	args := parseArgs()
 	fmt.Printf("Downloading %s...\n", args.Url)
-	userAgent := buildUserAgent()
+	userAgent := makeUserAgent()
 	cmd := makeCommand(args, userAgent)
-	available_stdin := stdinAvailable()
-	var stdin io.WriteCloser
-	if available_stdin {
-		var err error
-		if stdin, err = cmd.StdinPipe(); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to get pipe: %s\n", err)
-			return 1
-		}
-	}
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start curl: %s\n", err)
 		return 1
-	}
-	if available_stdin {
-		if _, err := io.Copy(stdin, os.Stdin); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to copy stdin\n")
-			return 1
-		}
 	}
 	if err := cmd.Wait(); err != nil { // This also closes stdin
 		fmt.Fprintf(os.Stderr, "Curl failed to execute correctly\n")
