@@ -12,5 +12,5 @@ This simple program aims to solve both problems by building the user agent strin
 
 In `/etc/pacman.conf`, set `XferCommand` like so:
 ```conf
-XferCommand = /path/to/pacman-subdownloader --socks5hostname <proxy> %u %o
+XferCommand = /path/to/pacman-subdownloader --socks5-hostname <proxy> %u %o
 ```
