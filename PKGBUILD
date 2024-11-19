@@ -1,34 +1,24 @@
 pkgname='pacman-subdownloader'
-pkgver='0.1'
+pkgver='0.2'
 pkgrel=1
 pkgdesc="Download packages over a proxy while print the file name"
 arch=('any')
 url="https://github.com/inventor500/pacman-subdownloader"
 license=('GPL3')
 depends=('pacman' 'curl')
-makedepends=('go')
-source=('cmd/pacman-subdownloader/main.go')
-sha256sums=('cbb91395d47bc84d943482f7dc47d50a26da392c523bd0e8a65eb658c13902f0')
+makedepends=('cmake')
+source=('CMakeLists.txt' 'main.cpp')
+sha256sums=('4a699f5e549d3207cbbfa21bea62a86fe1828351f1c24d08ad49ba1694fac3df'
+            'dea41646cdb1dda8dd6d2b458eb75d991bbdb5ce5bf0bbc06a7f76b4f2e55924')
 
 prepare() {
-	mkdir "$pkgname"
-	cd "$pkgname"
-	mv ../main.go .
-	go mod init "${url#https://}" # strip https:// from canonical URL
-	go mod tidy
+	cmake -B build -S .
 }
 
 build() {
-	export CGO_CPPFLAGS="${CPPFLAGS}"
-	export CGO_CFLAGS="${CFLAGS}"
-	export CGO_CXXFLAGS="${CXXFLAGS}"
-	export CGO_LDFLAGS="${LDFLAGS}"
-	export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
-	cd "$pkgname"
-	go build
+    cmake --build build
 }
 
 package() {
-	cd "$pkgname"
-	install -Dm755 $pkgname "$pkgdir/usr/bin/$pkgname"
+	install -Dm755 "build/$pkgname" "$pkgdir/usr/bin/$pkgname"
 }

@@ -5,6 +5,6 @@ set(CMAKE_CXX_STANDARD 17)
 add_executable(pacman-subdownloader)
 target_sources(pacman-subdownloader
   PUBLIC
-  ${CMAKE_SOURCE_DIR}/src/main.cpp
+  ${CMAKE_SOURCE_DIR}/main.cpp
 )
 target_link_libraries(pacman-subdownloader curl alpm)
