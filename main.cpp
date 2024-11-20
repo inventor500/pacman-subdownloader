@@ -14,7 +14,7 @@
 #include "main.hpp"
 #include <string>
 #include <cstring>
-#include <sstream>
+#include <format>
 #include <iostream>
 #include <filesystem>
 #include <cmath>
@@ -62,7 +62,7 @@ Args parse_args(int argc, const char** argv) {
 		args.url = argv[position];
 		args.file = argv[position+1];
 	} else {
-		std::cerr << "Usage: " << argv[0] << " [--socks5-hostname <hostname>:<port>] <url> <filename>\n";
+		std::cerr << std::format("Usage: {} [--socks5-hostname <hostname>:<port>] <url> <filename>\n", argv[0]);
 		throw std::runtime_error("Unable to parse arguments");
 	}
 	return args;
@@ -70,15 +70,10 @@ Args parse_args(int argc, const char** argv) {
 
 /* Package Versions */
 
-std::string pacman_version();
-
 std::string make_pacman_user_agent() {
-	std::ostringstream os;
 	sys::utsname un{};
 	sys::uname(&un);
-	os << "pacman/" << pacman_version() << " (" << un.sysname << ' ' << un.machine
-	   << ") libalpm/" << alpm::alpm_version();
-	return os.str();
+	return std::format("pacman/{} ({} {}) libalpm/{}", pacman_version(), un.sysname, un.machine, alpm::alpm_version());
 }
 
 std::string pacman_version() {
@@ -123,7 +118,7 @@ int display_progress(void*, curl::curl_off_t dltotal, curl::curl_off_t dlnow,
 	const double remaining = static_cast<double>(dlnow) / dltotal;
 	const int positions = std::floor(size * remaining);
 	// TODO: Maybe have '-' for the last character if size * remaining would round up?
-	std::cerr << '\r' << '[' << std::string(positions, '=') << std::string(size - positions, ' ') << ']';
+	std::cerr << std::format("\r[{}{}]", std::string(positions, '='), std::string(size - positions, ' '));
 	return 0;
 }
 
@@ -163,7 +158,9 @@ int display_progress(void*, curl::curl_off_t dltotal, curl::curl_off_t dlnow,
 	curl::curl_easy_cleanup(hnd);
 	if (ret != curl::CURLE_OK || http_code != 200) {
 		std::cerr << "Received HTTP code " << http_code << '\n';
-		std::cerr << errors << '\n';
+		if (errors[0] != 0) {
+			std::cerr << errors << '\n';
+		}
 	}
 	// Check for file writing errors
 	int is_ok = (std::ferror(file)) ? EXIT_FAILURE : EXIT_SUCCESS;

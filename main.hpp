@@ -23,3 +23,6 @@ long get_resume(const std::filesystem::path& filepath);
 
 // Get the pacman user agent
 std::string make_pacman_user_agent();
+
+// Get the current version of Pacman, minus the Git version
+std::string pacman_version();
