@@ -11,22 +11,29 @@
 //       You should have received a copy of the GNU General Public License along with this program.
 //       If not, see <https://www.gnu.org/licenses/>.
 
-#include <unistd.h>
-#include <sys/ioctl.h>
+#include "main.hpp"
 #include <string>
 #include <cstring>
 #include <sstream>
 #include <iostream>
-#include <cmath>
 #include <filesystem>
-#include "packages.hpp"
-#include "main.hpp"
+#include <cmath>
+#include <unistd.h>
+
+namespace sys {
+	#include <sys/ioctl.h>
+	#include <sys/utsname.h>
+}
+
+namespace alpm {
+	#include <alpm.h>
+}
 
 int main(int argc, const char** argv) {
 	try {
 		Args args = parse_args(argc, argv);
 		std::string user_agent = make_pacman_user_agent();
-		curl_off_t resume = get_resume(args.file);
+		curl::curl_off_t resume = get_resume(args.file);
 		std::cerr << "Downloading " << args.url << "...\n";
 		return invoke_curl(args, user_agent, resume);
 	} catch (const std::runtime_error&) {
@@ -61,18 +68,55 @@ Args parse_args(int argc, const char** argv) {
 	return args;
 }
 
+/* Package Versions */
+
+std::string pacman_version();
+
+std::string make_pacman_user_agent() {
+	std::ostringstream os;
+	sys::utsname un{};
+	sys::uname(&un);
+	os << "pacman/" << pacman_version() << " (" << un.sysname << ' ' << un.machine
+	   << ") libalpm/" << alpm::alpm_version();
+	return os.str();
+}
+
+std::string pacman_version() {
+	alpm::alpm_errno_t err;
+	auto* handle = alpm::alpm_initialize("/", "/var/lib/pacman/", &err);
+	if (handle == NULL) {
+		throw std::runtime_error(alpm::alpm_strerror(err));
+	}
+	auto* db = alpm::alpm_get_localdb(handle);
+	auto* pacman = alpm::alpm_db_get_pkg(db, "pacman");
+	std::string version = alpm::alpm_pkg_get_version(pacman);
+	alpm::alpm_release(handle);
+	size_t pos = 0;
+	for (int i = 0; i < 3 && pos < version.size(); i++) {
+		pos = version.find('.', pos);
+		pos++;
+	}
+	if (version.at(pos-1) == '.') {
+		pos--; // Omit the last '.'
+	}
+	return version.substr(0, pos);
+}
+
+
+/* Downloading Functions */
+
 // Get the width of the console
 int get_width() noexcept {
-	struct winsize size;
-	ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
+	struct sys::winsize size;
+	sys::ioctl(STDOUT_FILENO, TIOCGWINSZ, &size);
 	return size.ws_col;
 }
 
 // Display download progress
-int display_progress(void*, curl_off_t dltotal, curl_off_t dlnow,
-					 curl_off_t, curl_off_t) {
+int display_progress(void*, curl::curl_off_t dltotal, curl::curl_off_t dlnow,
+					 curl::curl_off_t, curl::curl_off_t) {
 	// The last two parameters are for upload progress
-	if (dltotal <= 0) { // Avoid divide-by-zero
+	if (dltotal <= 0 || !isatty(fileno(stdin))) { // Avoid divide-by-zero
 		return 0;
 	}
 	const int size = get_width() - 2;
@@ -83,40 +127,41 @@ int display_progress(void*, curl_off_t dltotal, curl_off_t dlnow,
 	return 0;
 }
 
-[[nodiscard]] int invoke_curl(const Args& args, const std::string& user_agent, curl_off_t resume) noexcept {
-	CURL *hnd = curl_easy_init();
+[[nodiscard]] int invoke_curl(const Args& args, const std::string& user_agent,
+							  curl::curl_off_t resume) noexcept {
+	curl::CURL *hnd = curl::curl_easy_init();
 	// Get errors
 	char errors[CURL_ERROR_SIZE];
 	errors[0] = 0;
-	curl_easy_setopt(hnd, CURLOPT_ERRORBUFFER, errors);
+	curl::curl_easy_setopt(hnd, curl::CURLOPT_ERRORBUFFER, errors);
 	// Set the URL
-	curl_easy_setopt(hnd, CURLOPT_URL, args.url.c_str());
+	curl::curl_easy_setopt(hnd, curl::CURLOPT_URL, args.url.c_str());
 	// Use a proxy if provided
 	if (args.proxy != "") {
-		curl_easy_setopt(hnd, CURLOPT_PROXY, args.proxy.c_str());
-		curl_easy_setopt(hnd, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS5_HOSTNAME);
+		curl::curl_easy_setopt(hnd, curl::CURLOPT_PROXY, args.proxy.c_str());
+		curl::curl_easy_setopt(hnd, curl::CURLOPT_PROXYTYPE, curl::CURLPROXY_SOCKS5_HOSTNAME);
 	}
 	// Set the user agent
-	curl_easy_setopt(hnd, CURLOPT_USERAGENT, user_agent.c_str());
+	curl::curl_easy_setopt(hnd, curl::CURLOPT_USERAGENT, user_agent.c_str());
 	// Avoid writing headers to file
-	curl_easy_setopt(hnd, CURLOPT_HEADER, false);
+	curl::curl_easy_setopt(hnd, curl::CURLOPT_HEADER, false);
 	// Resume downloading
 	if (resume != 0) {
-		curl_easy_setopt(hnd, CURLOPT_RESUME_FROM, resume);
+		curl::curl_easy_setopt(hnd, curl::CURLOPT_RESUME_FROM, resume);
 	}
 	// Display download progress
-	curl_easy_setopt(hnd, CURLOPT_XFERINFOFUNCTION, display_progress);
-	curl_easy_setopt(hnd, CURLOPT_NOPROGRESS, false);
+	curl::curl_easy_setopt(hnd, curl::CURLOPT_XFERINFOFUNCTION, display_progress);
+	curl::curl_easy_setopt(hnd, curl::CURLOPT_NOPROGRESS, false);
 	// Write to a file
-	std::FILE* file = fopen(args.file.c_str(), (resume != 0) ? "a" : "w");
-	curl_easy_setopt(hnd, CURLOPT_WRITEDATA, file);
+	std::FILE* file = std::fopen(args.file.c_str(), (resume != 0) ? "a" : "w");
+	curl::curl_easy_setopt(hnd, curl::CURLOPT_WRITEDATA, file);
 	// Do the download
-	CURLcode ret = curl_easy_perform(hnd);
+	curl::CURLcode ret = curl::curl_easy_perform(hnd);
 	long http_code;
-	curl_easy_getinfo(hnd, CURLINFO_RESPONSE_CODE, &http_code);
+	curl::curl_easy_getinfo(hnd, curl::CURLINFO_RESPONSE_CODE, &http_code);
 	// Clean up
-	curl_easy_cleanup(hnd);
-	if (ret != CURLE_OK || http_code != 200) {
+	curl::curl_easy_cleanup(hnd);
+	if (ret != curl::CURLE_OK || http_code != 200) {
 		std::cerr << "Received HTTP code " << http_code << '\n';
 		std::cerr << errors << '\n';
 	}
@@ -124,7 +169,7 @@ int display_progress(void*, curl_off_t dltotal, curl_off_t dlnow,
 	int is_ok = (std::ferror(file)) ? EXIT_FAILURE : EXIT_SUCCESS;
 	std::fclose(file);
 	// Return a curl failure if there is one, else return the file error
-	return (ret == CURLE_OK && http_code == 200) ? is_ok : http_code;
+	return (ret == curl::CURLE_OK && http_code == 200) ? is_ok : http_code;
 }
 
 long get_resume(const std::filesystem::path& filename) {
