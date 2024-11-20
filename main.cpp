@@ -11,9 +11,7 @@
 //       You should have received a copy of the GNU General Public License along with this program.
 //       If not, see <https://www.gnu.org/licenses/>.
 
-#include <alpm.h>
-#include <sys/utsname.h>
-#include <curl/curl.h>
+#include <unistd.h>
 #include <sys/ioctl.h>
 #include <string>
 #include <cstring>
@@ -21,32 +19,16 @@
 #include <iostream>
 #include <cmath>
 #include <filesystem>
-
-struct Args {
-	std::string proxy;
-	std::string url;
-	std::filesystem::path file;
-};
-
-// Parse arguments
-Args parse_args(int argc, const char** argv);
-// Create the appropriate user agent
-std::string make_user_agent() noexcept;
-// Download the file
-[[nodiscard]] int invoke_curl(const Args& args, const std::string& user_agent, curl_off_t resume) noexcept;
-// Get the resume position. Returns 0 if the file does not exist.
-long get_resume(const std::filesystem::path& filepath);
+#include "packages.hpp"
+#include "main.hpp"
 
 int main(int argc, const char** argv) {
 	try {
 		Args args = parse_args(argc, argv);
-		std::string user_agent = make_user_agent();
-		curl_off_t resume = get_resume(args.file); // TODO: Get this from stdin
+		std::string user_agent = make_pacman_user_agent();
+		curl_off_t resume = get_resume(args.file);
 		std::cerr << "Downloading " << args.url << "...\n";
 		return invoke_curl(args, user_agent, resume);
-		// if (invoke_curl(args, user_agent, resume) != 0) {
-		// 	remove_file(args.file);
-		// }
 	} catch (const std::runtime_error&) {
 		return 1;
 	}
@@ -55,7 +37,7 @@ int main(int argc, const char** argv) {
 Args parse_args(int argc, const char** argv) {
 	Args args{};
 	// Get the hostname
-	// This will silently ignore any unsupported flags
+	// This will silently ignore any unsupported flags that precede socks5-hostname
 	int position = 1;
 	for (; position < argc; position++) {
 		if (strcmp(argv[position], "--socks5-hostname") == 0) {
@@ -77,15 +59,6 @@ Args parse_args(int argc, const char** argv) {
 		throw std::runtime_error("Unable to parse arguments");
 	}
 	return args;
-}
-
-std::string make_user_agent() noexcept {
-	std::ostringstream os;
-	utsname un{};
-	uname(&un); // Tested w/ valgrind to make sure this is freed
-	os << "pacman/" << "7.0.0" << " (" << un.sysname << ' ' << un.machine
-	   << ") libalpm/" << alpm_version();
-	return os.str();
 }
 
 // Get the width of the console
