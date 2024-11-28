@@ -35,7 +35,9 @@ int main(int argc, const char** argv) {
 		std::string user_agent = make_pacman_user_agent();
 		curl::curl_off_t resume = get_resume(args.file);
 		std::cerr << "Downloading " << args.url << "...\n";
-		return invoke_curl(args, user_agent, resume);
+		int result = invoke_curl(args, user_agent, resume);
+		std::cerr << '\n';
+		return result;
 	} catch (const std::runtime_error&) {
 		return 1;
 	}
