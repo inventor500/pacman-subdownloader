@@ -35,9 +35,9 @@ int main(int argc, const char** argv) {
 		std::string user_agent = make_pacman_user_agent();
 		curl::curl_off_t resume = get_resume(args.file);
 		std::cerr << "Downloading " << args.url << "...\n";
-		int result = invoke_curl(args, user_agent, resume);
-		std::cerr << '\n';
-		return result;
+		curl::curl_global_init(CURL_GLOBAL_DEFAULT | CURL_GLOBAL_SSL);
+		std::atexit(curl::curl_global_cleanup);
+		return invoke_curl(args, user_agent, resume);
 	} catch (const std::runtime_error&) {
 		return 1;
 	}
@@ -163,6 +163,8 @@ int display_progress(void*, curl::curl_off_t dltotal, curl::curl_off_t dlnow,
 		if (errors[0] != 0) {
 			std::cerr << errors << '\n';
 		}
+	} else {
+		std::cerr << '\n';
 	}
 	// Check for file writing errors
 	int is_ok = (std::ferror(file)) ? EXIT_FAILURE : EXIT_SUCCESS;
