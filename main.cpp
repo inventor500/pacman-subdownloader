@@ -118,9 +118,10 @@ int display_progress(void*, curl::curl_off_t dltotal, curl::curl_off_t dlnow,
 	}
 	const int size = get_width() - 2;
 	const double remaining = static_cast<double>(dlnow) / dltotal;
-	const int positions = std::floor(size * remaining);
-	// TODO: Maybe have '-' for the last character if size * remaining would round up?
-	std::cerr << std::format("\r[{}{}]", std::string(positions, '='), std::string(size - positions, ' '));
+	const double pos = size * remaining;
+	const int positions = std::floor(pos);
+	const bool loading = (pos - positions) > 0.5;
+	std::cerr << std::format("\r[{}{}{}]", std::string(positions, '#'), (loading) ? "=" : "", std::string(size - (loading ? positions + 1 : positions), ' '));
 	return 0;
 }
 
